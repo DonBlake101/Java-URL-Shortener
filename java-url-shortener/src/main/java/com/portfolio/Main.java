@@ -1,0 +1,7 @@
+package com.portfolio;
+import com.sun.net.httpserver.HttpServer; import java.io.IOException; import java.net.InetSocketAddress; import java.net.URI; import java.security.SecureRandom; import java.util.HexFormat;
+public class Main { public static void main(String[] args) throws Exception { Repo repo=Repo.init(); HttpServer server=HttpServer.create(new InetSocketAddress(8080),0);
+ server.createContext("/shorten", ex->{ if(!ex.getRequestMethod().equalsIgnoreCase("POST")){ ex.sendResponseHeaders(405,-1); return;} String target = new String(ex.getRequestBody().readAllBytes()); String code = randomCode(); try{ repo.create(code,target);}catch(Exception e){ ex.sendResponseHeaders(500,-1); return;} byte[] out=code.getBytes(); ex.sendResponseHeaders(200,out.length); ex.getResponseBody().write(out); ex.close(); });
+ server.createContext("/", ex->{ URI uri=ex.getRequestURI(); String code = uri.getPath().substring(1); try{ var hit=repo.find(code); if(hit.isPresent()){ ex.getResponseHeaders().add("Location", hit.get()); ex.sendResponseHeaders(302,-1);} else { byte[] out = "Not found".getBytes(); ex.sendResponseHeaders(404,out.length); ex.getResponseBody().write(out);} } catch(Exception e){ ex.sendResponseHeaders(500,-1);} ex.close(); });
+ server.start(); System.out.println("URL Shortener on http://localhost:8080"); }
+ static String randomCode(){ byte[] b=new byte[3]; new SecureRandom().nextBytes(b); return HexFormat.of().formatHex(b);} }
